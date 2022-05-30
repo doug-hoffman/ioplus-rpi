@@ -1,5 +1,6 @@
-import smbus
 import struct
+
+import smbus
 
 # bus = smbus.SMBus(1)    # 0 = /dev/i2c-0 (port I2C0), 1 = /dev/i2c-1 (port I2C1)
 
@@ -392,6 +393,20 @@ def resetOptoEncoderCount(stack, channel):
     bus = smbus.SMBus(1)
     try:
         bus.write_byte_data(DEVICE_ADDRESS + stack, I2C_MEM_OPTO_ENC_CNT_RST_ADD, channel)
+    except Exception as e:
+        bus.close()
+        raise e
+    bus.close()
+    return 1
+
+def rstWdt(stack):
+    if stack < 0 or stack > 7:
+        raise ValueError('Invalid stack level')
+    I2C_MEM_WDT_RESET_ADD = 100
+    WDT_RESET_SIGNATURE = 0xCA
+    bus = smbus.SMBus(1)
+    try:
+        bus.write_byte_data(DEVICE_ADDRESS + stack, I2C_MEM_WDT_RESET_ADD, WDT_RESET_SIGNATURE)
     except Exception as e:
         bus.close()
         raise e

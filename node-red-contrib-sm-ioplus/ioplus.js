@@ -1,12 +1,14 @@
 module.exports = function(RED) {
     "use strict";
     var I2C = require("i2c-bus");
+    var I2CPORT = I2C.openSync( 1 );
     const DEFAULT_HW_ADD = 0x28;
 
     const I2C_MEM_RELAY_VAL_ADD = 0;   
     const I2C_RELAY_SET_ADD = 1;
     const I2C_RELAY_CLR_ADD = 2;
     const I2C_MEM_OPTO_IN_VAL = 3;
+    const I2C_MEM_ADC_VAL_RAW_ADD = 8;
     const I2C_MEM_U0_10_OUT_VAL1 = 40;
     const I2C_MEM_OD_PWM1 = 48;
     const I2C_MEM_ADC_MV_VAL1 = 24;
@@ -15,6 +17,16 @@ module.exports = function(RED) {
     const I2C_MEM_OPTO_CH_CONT_RESET = 60;
     const I2C_MEM_OPTO_COUNT1 = 128; //4 bytes integers
 
+    const I2C_MEM_WDT_CLEAR_RESET_COUNT_ADD = 111;
+    const I2C_MEM_WDT_INIT_INTERVAL_GET_ADD = 107;
+    const I2C_MEM_WDT_INIT_INTERVAL_SET_ADD = 105;
+    const I2C_MEM_WDT_INTERVAL_GET_ADD = 103;
+    const I2C_MEM_WDT_INTERVAL_SET_ADD = 101;
+    const I2C_MEM_WDT_POWER_OFF_INTERVAL_GET_ADD = 116;
+    const I2C_MEM_WDT_POWER_OFF_INTERVAL_SET_ADD = 112;
+    const I2C_MEM_WDT_RESET_ADD = 100;
+    const I2C_MEM_WDT_RESET_COUNT_ADD = 109;
+    const WDT_RESET_SIGNATURE = 0xCA;
 
     function RelayNode(n) {
         RED.nodes.createNode(this, n);
@@ -24,7 +36,6 @@ module.exports = function(RED) {
         this.payloadType = n.payloadType;
         var node = this;
 
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack;
@@ -70,14 +81,14 @@ module.exports = function(RED) {
                 }
                 if(relay > 0){
                     if (myPayload == null || myPayload == false || myPayload == 0 || myPayload == 'off') {
-                      node.port.writeByte(hwAdd, I2C_RELAY_CLR_ADD, relay,  function(err) {
+                      I2CPORT.writeByte(hwAdd, I2C_RELAY_CLR_ADD, relay,  function(err) {
                         if (err) { node.error(err, msg);
                         } else {
                           node.send(msg);
                         }
                       });
                     } else {
-                      node.port.writeByte(hwAdd, I2C_RELAY_SET_ADD, relay,  function(err) {
+                      I2CPORT.writeByte(hwAdd, I2C_RELAY_SET_ADD, relay,  function(err) {
                         if (err) { node.error(err, msg);
                         } else {
                           node.send(msg);
@@ -92,7 +103,7 @@ module.exports = function(RED) {
                         return;
                     } else {
                         msg.payload = relVal;
-                        node.port.writeByte(hwAdd, I2C_MEM_RELAY_VAL_ADD, relVal,  function(err) {
+                        I2CPORT.writeByte(hwAdd, I2C_MEM_RELAY_VAL_ADD, relVal,  function(err) {
                         if (err) { node.error(err, msg);
                         } else {
                           node.send(msg);
@@ -106,9 +117,6 @@ module.exports = function(RED) {
             }
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS RELAY", RelayNode);
 
@@ -119,9 +127,7 @@ module.exports = function(RED) {
         this.payload = n.payload;
         this.payloadType = n.payloadType;
         var node = this;
-        var buffer = Buffer.alloc(2);
         
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack; 
@@ -164,12 +170,12 @@ module.exports = function(RED) {
                 } else {
                     myPayload = RED.util.evaluateNodeProperty(this.payload, this.payloadType, this,msg);
                 }
-                node.port.readI2cBlock(hwAdd, I2C_MEM_ADC_MV_VAL1 + (channel - 1)*2, 2, buffer,  function(err, size, res) {
+                I2CPORT.readWord(hwAdd, I2C_MEM_ADC_VAL_RAW_ADD + (channel - 1)*2, function(err, res) {
                     if (err) { 
                         node.error(err, msg);
                     } 
                     else{
-                        msg.payload = res.readIntLE(0, 2) / 1000.0;                       
+                        msg.payload = res;
                         node.send(msg);
                     }
                     });     
@@ -180,9 +186,6 @@ module.exports = function(RED) {
             
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS ADC in", VInNode);
 
@@ -195,7 +198,6 @@ module.exports = function(RED) {
         var node = this;
         var buffer = Buffer.alloc(2);
         
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack; 
@@ -250,7 +252,7 @@ module.exports = function(RED) {
                 }
                 var intVal = Math.round(myPayload * 1000);
                 
-                node.port.writeWord(hwAdd, I2C_MEM_U0_10_OUT_VAL1 + (channel - 1)*2, intVal,  function(err, size, res) {
+                I2CPORT.writeWord(hwAdd, I2C_MEM_U0_10_OUT_VAL1 + (channel - 1)*2, intVal,  function(err, size, res) {
                     if (err) { 
                         node.error(err, msg);
                     } 
@@ -265,9 +267,6 @@ module.exports = function(RED) {
             
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS 0-10V out", VOutNode);   
 
@@ -284,7 +283,6 @@ module.exports = function(RED) {
         var lastCfgCh = 0;
         var cfgByte = 0;
         
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack; 
@@ -331,7 +329,7 @@ module.exports = function(RED) {
             if(lastCfgCh != channel)
             {
               //node.log("Check configuration");
-              node.port.readByte(hwAdd, I2C_MEM_OPTO_RISING_ENABLE,  function(err, rbyte) {
+              I2CPORT.readByte(hwAdd, I2C_MEM_OPTO_RISING_ENABLE,  function(err, rbyte) {
                 if (err) { 
                     node.error(err, msg);
                 } 
@@ -347,7 +345,7 @@ module.exports = function(RED) {
                       //node.log("Disable rising edge counting on channel " + channel );
                     }
                     
-                    node.port.writeByte(hwAdd, I2C_MEM_OPTO_RISING_ENABLE, cfgByte, function(err) {
+                    I2CPORT.writeByte(hwAdd, I2C_MEM_OPTO_RISING_ENABLE, cfgByte, function(err) {
                       if (err) {
                         node.error(err, msg);
                       }
@@ -356,7 +354,7 @@ module.exports = function(RED) {
                 }
                 });     
               
-              node.port.readByte(hwAdd, I2C_MEM_OPTO_FALLING_ENABLE,  function(err, rbyte) {
+              I2CPORT.readByte(hwAdd, I2C_MEM_OPTO_FALLING_ENABLE,  function(err, rbyte) {
                 if (err) { 
                     node.error(err, msg);
                 } 
@@ -372,7 +370,7 @@ module.exports = function(RED) {
                       //node.log("Disable falling edge counting on channel " + channel );
                     }
                     
-                    node.port.writeByte(hwAdd, I2C_MEM_OPTO_FALLING_ENABLE, cfgByte, function(err) {
+                    I2CPORT.writeByte(hwAdd, I2C_MEM_OPTO_FALLING_ENABLE, cfgByte, function(err) {
                       if (err) {
                         node.error(err, msg);
                       }
@@ -391,7 +389,7 @@ module.exports = function(RED) {
                 } else {
                     myPayload = RED.util.evaluateNodeProperty(this.payload, this.payloadType, this,msg);
                 }
-                node.port.readI2cBlock(hwAdd, I2C_MEM_OPTO_COUNT1 + (channel - 1)*4, 4, buffer,  function(err, size, res) {
+                I2CPORT.readI2cBlock(hwAdd, I2C_MEM_OPTO_COUNT1 + (channel - 1)*4, 4, buffer,  function(err, size, res) {
                     if (err) { 
                         node.error(err, msg);
                     } 
@@ -407,9 +405,6 @@ module.exports = function(RED) {
             
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS OPT cnt", OptoCounterNode);
     
@@ -424,7 +419,6 @@ module.exports = function(RED) {
         var buffer = Buffer.alloc(4);
       
         
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack; 
@@ -468,7 +462,7 @@ module.exports = function(RED) {
                 } else {
                     myPayload = RED.util.evaluateNodeProperty(this.payload, this.payloadType, this,msg);
                 }
-                node.port.readByte(hwAdd, I2C_MEM_OPTO_IN_VAL ,  function(err, res) {
+                I2CPORT.readByte(hwAdd, I2C_MEM_OPTO_IN_VAL ,  function(err, res) {
                     if (err) { 
                         node.error(err, msg);
                     } 
@@ -495,9 +489,6 @@ module.exports = function(RED) {
             
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS OPT in", OptoInNode);
     
@@ -510,7 +501,6 @@ module.exports = function(RED) {
         var node = this;
         var buffer = Buffer.alloc(2);
         
-        node.port = I2C.openSync( 1 );
         node.on("input", function(msg) {
             var myPayload;
             var stack = node.stack; 
@@ -565,7 +555,7 @@ module.exports = function(RED) {
                 }
                 var intVal = Math.round(myPayload * 100);
                 
-                node.port.writeWord(hwAdd, I2C_MEM_OD_PWM1 + (channel - 1)*2, intVal,  function(err, size, res) {
+                I2CPORT.writeWord(hwAdd, I2C_MEM_OD_PWM1 + (channel - 1)*2, intVal,  function(err, size, res) {
                     if (err) { 
                         node.error(err, msg);
                     } 
@@ -580,9 +570,101 @@ module.exports = function(RED) {
             
         });
 
-        node.on("close", function() {
-            node.port.closeSync();
-        });
     }
     RED.nodes.registerType("IOPLUS OD out", PWMOutNode);  
+
+    function WDTResetNode(n) {
+      RED.nodes.createNode(this, n);
+      this.stack = parseInt(n.stack);
+      this.payload = n.payload;
+      this.payloadType = n.payloadType;
+      var node = this;
+
+      node.on("input", function(msg) {
+          var stack = node.stack;
+          if (isNaN(stack)) stack = msg.stack;
+          stack = parseInt(stack);
+          if (isNaN(stack + 1)) {
+              this.status({fill:"red",shape:"ring",text:"Stack level ("+stack+") value is missing or incorrect"});
+              return;
+          } else {
+              this.status({});
+          }
+          var hwAdd = DEFAULT_HW_ADD;
+          if(stack < 0){
+              stack = 0;
+          }
+          if(stack > 7){
+            stack = 7;
+          }
+          hwAdd += stack;
+          
+          try {
+             
+              I2CPORT.writeByte(hwAdd, I2C_MEM_WDT_RESET_ADD, WDT_RESET_SIGNATURE,  function(err) {
+                  if (err) { node.error(err, msg);
+                } else {
+                  node.send(msg);
+                }
+              });
+
+          } catch(err) {
+              this.error(err,msg);
+          }
+      });
+
+    }
+    RED.nodes.registerType("IOPLUS WDT Reset", WDTResetNode);
+
+    function WDTIntervalSetNode(n) {
+      RED.nodes.createNode(this, n);
+      this.stack = parseInt(n.stack);
+      this.payload = n.payload;
+      this.payloadType = n.payloadType;
+      var node = this;
+
+      node.on("input", function(msg) {
+          var myPayload;
+          var stack = node.stack;
+          if (isNaN(stack)) stack = msg.stack;
+          stack = parseInt(stack);
+          if (isNaN(stack + 1)) {
+              this.status({fill:"red",shape:"ring",text:"Stack level ("+stack+") value is missing or incorrect"});
+              return;
+          } else {
+              this.status({});
+          }
+          var hwAdd = DEFAULT_HW_ADD;
+          if(stack < 0){
+              stack = 0;
+          }
+          if(stack > 7){
+            stack = 7;
+          }
+          hwAdd += stack;
+          
+          try {
+              if (this.payloadType == null) {
+                  myPayload = this.payload;
+              } else if (this.payloadType == 'none') {
+                  myPayload = null;
+              } else {
+                  myPayload = RED.util.evaluateNodeProperty(this.payload, this.payloadType, this,msg);
+              }
+       
+              I2CPORT.writeByte(hwAdd, I2C_MEM_WDT_INTERVAL_SET_ADD, myPayload,  function(err) {
+                if (err) { node.error(err, msg);
+                } else {
+                  node.send(msg);
+                }
+              });
+
+          } catch(err) {
+              this.error(err,msg);
+          }
+      });
+
+    }
+    RED.nodes.registerType("IOPLUS WDT Interval Set", WDTIntervalSetNode);
+
 }

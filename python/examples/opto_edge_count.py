@@ -1,6 +1,8 @@
-import libioplus as iop
-import time
 import sys
+import time
+
+import libioplus as iop
+
 stack = 0
 channel = 1
 #configure the counting edge

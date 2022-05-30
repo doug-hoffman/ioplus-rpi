@@ -1,6 +1,7 @@
-import libioplus as io
-import time
 import sys
+import time
+
+import libioplus as io
 
 if __name__ == "__main__":
 	if len(sys.argv) != 2 :

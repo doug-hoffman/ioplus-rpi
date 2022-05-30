@@ -1,8 +1,9 @@
 #This example turn on a relay when you press the button and turn it off when you release the button.
+import sys
+import time
+
 import libioplus as home
 import RPi.GPIO as GPIO
-import time
-import sys
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)

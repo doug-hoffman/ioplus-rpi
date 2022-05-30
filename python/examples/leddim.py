@@ -1,6 +1,7 @@
 #This example use open drain output to dimm a led or any DC load
-import libioplus as io
 import time
+
+import libioplus as io
 
 try:
     while True:

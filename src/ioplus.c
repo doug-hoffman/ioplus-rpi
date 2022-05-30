@@ -1742,6 +1742,7 @@ int doWdtSetPeriod(int argc, char *argv[])
 			exit(1);
 		}
 		memcpy(buff, &period, 2);
+                printf("I2C_MEM_WDT_INTERVAL_SET_ADD = %i\n", I2C_MEM_WDT_INTERVAL_SET_ADD);
 		if (OK != i2cMem8Write(dev, I2C_MEM_WDT_INTERVAL_SET_ADD, buff, 2))
 		{
 			printf("Fail to write watchdog period!\n");
@@ -1920,6 +1921,7 @@ int doWdtSetOffPeriod(int argc, char *argv[])
 			exit(1);
 		}
 		memcpy(buff, &period, 4);
+                printf("I2C_MEM_WDT_POWER_OFF_INTERVAL_SET_ADD = %i\n", I2C_MEM_WDT_POWER_OFF_INTERVAL_SET_ADD);
 		if (OK
 			!= i2cMem8Write(dev, I2C_MEM_WDT_POWER_OFF_INTERVAL_SET_ADD, buff, 4))
 		{

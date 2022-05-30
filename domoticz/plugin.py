@@ -27,6 +27,7 @@
 import Domoticz
 import libioplus as ioplus
 
+
 class BasePlugin:
     board = 0
     running = 0
